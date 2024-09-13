@@ -13,8 +13,8 @@ export class SocketFunction {
 
   startSocket(password) {
     // socket連線
-
-    socket = io(`${this.config.SOCKET_URL}`, {
+    console.log('socket url',this.config)
+    socket = io(`${this.config.VITE_SOCKET_URL}`, {
       parser: customParser,
       auth: { password }
     })
