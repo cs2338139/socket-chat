@@ -4,17 +4,18 @@ import { SocketFunction, socket } from './classes/Socket.js'
 function App() {
   const [isSocketConnect, setIsSocketConnect] = useState(false)
   const socketFunction = new SocketFunction()
-  const startBtn = useRef()
   const [password, setPassword] = useState('')
   const loginPopup = useRef()
 
   const [selfName, setSelfName] = useState('')
   const [roomList, setRoomList] = useState([])
   const [userList, setUserList] = useState([])
+
   const [currentUserIDList, setCurrentUserIDList] = useState([])
   const [currentMessageList, setCurrentMessageList] = useState([])
   const [currentRoom, setCurrentRoom] = useState('Room-List')
   const [currentSelfMessage, setCurrentSelfMessage] = useState('')
+  const [isStartReName, setIsStartReName] = useState(false)
 
   const loginMessages = { login: '快馬加鞭登入中...', success: '登入成功 =)', error: '連線失敗：<br/>' }
   const [currentLoginMessage, setCurrentLoginMessage] = useState('')
@@ -24,15 +25,11 @@ function App() {
   }, [currentRoom])
 
   useEffect(() => {
-    if (isSocketConnect) {
-      startBtn.current.innerHTML = 'disconnect'
-    } else {
-      startBtn.current.innerHTML = 'connect'
-      setRoomList([])
-      setCurrentUserIDList([])
-      setCurrentMessageList([])
-      setUserList([])
-    }
+    if (isSocketConnect) return
+    setRoomList([])
+    setCurrentUserIDList([])
+    setCurrentMessageList([])
+    setUserList([])
   }, [isSocketConnect])
 
   function startSocket() {
@@ -120,6 +117,7 @@ function App() {
 
   function sendMessage() {
     if (!isSocketConnect) { return }
+    if (currentSelfMessage == '') { return }
 
     const currentTime = new Date().getTime()
     const newMessage = { socketId: socket.id, message: currentSelfMessage, isSending: true, messageId: currentTime }
@@ -154,9 +152,17 @@ function App() {
     return (id === socket.id)
   }
 
-  const isSendingStyle = (value) => {
-    return (value) ? 'bg-gray-500' : 'bg-black'
-  }
+  const isCanName = useMemo(() => {
+    if (isStartReName) { return true }
+    if (isSocketConnect) { return false }
+
+    return true
+
+  }, [isSocketConnect, isStartReName])
+
+  const isCanConnect = useMemo(() => {
+    return (password !== '' && selfName !== '')
+  }, [password, selfName])
 
   const currentUserList = useMemo(() => {
     const list = []
@@ -171,6 +177,16 @@ function App() {
 
     return list
   }, [currentUserIDList, userList])
+
+  const reNameBtnAction = () => {
+    if (isStartReName) {
+      setIsStartReName(false)
+      reName()
+    }
+    else {
+      setIsStartReName(true)
+    }
+  }
 
   function loginPopupControl(state, string, timeDown = 0) {
     if (!state) {
@@ -190,95 +206,88 @@ function App() {
   }
 
 
-  return (
-    <>
-      <div className="m-10 border border-gray-400 px-10 py-5">
-        <button ref={startBtn} className="border border-black px-3 py-1" onClick={startSocket}>
-          connect
-        </button>
 
-        <div className="ml-10 inline-flex items-center gap-1 border border-dashed border-gray-300 p-2">
+
+
+  return (
+    <div className="m-10 border border-gray-400 px-10 py-5">
+
+      <div className='flex flex-col items-start gap-8 mb-8'>
+
+        <div className="flex flex-wrap gap-10 items-center">
+          <div className="inline-flex items-center gap-1 border border-dashed border-gray-300 p-2">
+            <span className="px-2 pt-0.5 text-lg">使用者名稱：</span>
+            <input disabled={!isCanName} value={selfName} onInput={(e) => setSelfName(e.target.value)} type="text" className="h-10 border border-black px-1 py-0.5 text-lg" />
+            <button className={`ml-3 border border-black py-1 px-3 ${isSocketConnect ? 'block' : 'hidden'}`} onClick={reNameBtnAction}>
+              {(isStartReName) ? '確定' : '重新命名'}
+            </button>
+          </div>
+
+          <button disabled={!isCanConnect} className={`border border-black px-4 py-2 rounded-m`} onClick={startSocket}>
+            {isSocketConnect ? 'Disconnect' : 'Connect'}
+          </button>
+        </div >
+
+        <div className="flex items-center gap-1 border border-dashed border-gray-300 p-2 ">
           <span className="px-2 pt-0.5 text-lg">登入密碼：</span>
           <input value={password} onInput={(e) => setPassword(e.target.value)} type="password" className="h-10 border border-black px-1 py-0.5 text-lg" />
         </div>
-        <br />
-        <br />
 
-        <div className="flex flex-wrap gap-10">
-          <div className="inline-flex items-center gap-1 border border-dashed border-gray-300 p-2">
-            <span className="px-2 pt-0.5 text-lg">使用者名稱：</span>
-            <input value={selfName} onInput={(e) => setSelfName(e.target.value)} type="text" className="h-10 border border-black px-1 py-0.5 text-lg" />
-            <button className={`ml-3 border border-black py-1 px-3 ${isSocketConnect ? 'block' : 'hidden'}`} onClick={reName}>
-              重新命名
-            </button>
-          </div>
-          <div className={`items-center gap-1 border border-dashed border-gray-300 p-2 ${isSocketConnect ? '' : 'hidden'}`}>
-            <span className="px-2 pt-0.5 text-lg">選擇房間：</span>
-            <select value={currentRoom} onChange={(e) => { setCurrentRoom(e.target.value) }} className="h-10 w-40 border border-black px-1 py-0.5 text-center text-black">
-              <option disabled value={null}>
-                Room-List
-              </option>
-              {roomList.map((item, index) => { return <option key={index} value={item}>{item}</option> })}
-            </select>
-          </div >
+        <div className={`items-center gap-1 border border-dashed border-gray-300 p-2 ${isSocketConnect ? '' : 'hidden'}`}>
+          <span className="px-2 pt-0.5 text-lg">選擇房間：</span>
+          <select value={currentRoom} onChange={(e) => { setCurrentRoom(e.target.value) }} className="h-10 w-40 border border-black px-1 py-0.5 text-center text-black">
+            <option disabled value={null}>
+              Room-List
+            </option>
+            {roomList.map((item, index) => { return <option key={index} value={item}>{item}</option> })}
+          </select>
         </div >
+      </div>
 
-        <br />
-        <br />
-        <br />
-        <div className="flex flex-wrap gap-10">
-          <div className={`w-80 flex-col gap-1 border border-dashed border-red-300 p-2 ${(isSocketConnect && currentRoom !== 'Room-List') ? 'inline-flex' : 'hidden'}`}>
-            <span className="px-2 pt-0.5 text-lg">房間使用者：</span>
-            <hr />
-            <div className="min-h-[100px] px-2">
-              {currentUserList.map((user, index) => { return <div key={index}>{user}</div> })}
-            </div>
-          </div>
-
-          <div className={`inline-flex w-3/5 min-w-[600px] flex-col gap-1 border border-dashed border-blue-500 p-2 ${(isSocketConnect && currentRoom !== 'Room-List') ? 'inline-flex' : 'hidden'}`}>
-            <span className="px-2 pt-0.5 text-lg">對話：</span>
-            <hr />
-            <div className="flex min-h-[100px] flex-col gap-3 px-2">
-              {/* <template v-for="(message, index) in currentMessageList" :key="index">
-              <div v-if="isSelfMessage(message.socketId)" className="flex flex-row-reverse">
-                <div className="rounded-md px-4  py-2 text-white duration-300" :className="[isSendingStyle(message?.isSending)]">
-                <span className="font-bold"> : </span><span>{{ message.message }}</span>
-              </div>
-            </div>
-            <div v-else className="flex justify-start">
-              <div className="rounded-md bg-black px-4 py-2 text-white">
-                <span className="font-bold">{{ userName(message.socketId) }} : </span><span>{{ message.message }}</span>
-              </div>
-            </div>
-          </template> */}
-              {
-                currentMessageList.map((message, index) => {
-                  return (
-                    <div key={index} className={isSelfMessage(message.socketId) ? 'flex flex-row-reverse' : 'flex justify-start'}>
-                      <div className={`rounded-md px-4 py-2 text-white duration-300 ${isSendingStyle(message?.isSending)}`}>
-                        <span className="font-bold">{userName(message.socketId)} : </span><span>{message.message}</span>
-                      </div>
-                    </div>
-                  )
-                })
-              }
-            </div >
-            <div className="mt-3 flex gap-5 px-2">
-              <input value={currentSelfMessage} onInput={(e) => setCurrentSelfMessage(e.target.value)} type="text" className="h-10 w-full border border-black px-1 py-0.5 text-lg" />
-              <button className="w-20 border border-black py-1 px-3" onClick={sendMessage}>
-                發送
-              </button>
-            </div >
-          </div >
-        </div >
-
-        <div ref={loginPopup} className="fixed top-0 left-0 hidden h-screen w-full flex-col items-center justify-center bg-black/30">
-          <div className="flex aspect-video h-[200px] flex-col items-center justify-center rounded-md border border-black bg-white text-xl">
-            <div className="text-center" dangerouslySetInnerHTML={{ __html: currentLoginMessage }}></div>
+      <div className="flex flex-wrap gap-10">
+        <div className={`w-80 flex-col gap-1 border border-dashed border-red-300 p-2 ${(isSocketConnect && currentRoom !== 'Room-List') ? 'inline-flex' : 'hidden'}`}>
+          <span className="px-2 pt-0.5 text-lg">房間使用者：</span>
+          <hr />
+          <div className="min-h-[100px] px-2">
+            {currentUserList.map((user, index) => { return <div key={index}>{user}</div> })}
           </div>
         </div>
+
+        <div className={`inline-flex w-3/5 min-w-[600px] flex-col gap-1 border border-dashed border-blue-500 p-2 ${(isSocketConnect && currentRoom !== 'Room-List') ? 'inline-flex' : 'hidden'}`}>
+          <span className="px-2 pt-0.5 text-lg">對話：</span>
+          <hr />
+          <div className="flex min-h-[100px] flex-col gap-3 px-2">
+            {
+              currentMessageList.map((message, index) => {
+                return (
+                  <div key={index} className={isSelfMessage(message.socketId) ? 'flex flex-row-reverse' : 'flex justify-start'}>
+                    <div className={`rounded-md px-4 py-2 text-white duration-300 ${(message?.isSending) ? 'bg-gray-500' : 'bg-black'}`}>
+                      <span className="font-bold">{isSelfMessage(message.socketId) ? '' : userName(message.socketId)} : </span>
+                      <span>{message.message}</span>
+                    </div>
+                  </div>
+                )
+              })
+            }
+          </div >
+          <div className="mt-3 flex gap-5 px-2">
+            <input value={currentSelfMessage}
+              onKeyDown={(e) => { if (e.key === 'Enter') { sendMessage() } }}
+              onInput={(e) => setCurrentSelfMessage(e.target.value)}
+              type="text" className="h-10 w-full border border-black px-1 py-0.5 text-lg" />
+            <button className="w-20 border border-black py-1 px-3" onClick={sendMessage}>
+              發送
+            </button>
+          </div >
+        </div >
       </div >
-    </>
+
+      <div ref={loginPopup} className="fixed top-0 left-0 hidden h-screen w-full flex-col items-center justify-center bg-black/30">
+        <div className="flex aspect-video h-[200px] flex-col items-center justify-center rounded-md border border-black bg-white text-xl">
+          <div className="text-center" dangerouslySetInnerHTML={{ __html: currentLoginMessage }}></div>
+        </div>
+      </div>
+    </div >
   )
 }
 
