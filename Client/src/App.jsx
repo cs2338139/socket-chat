@@ -4,6 +4,7 @@ import { SocketFunction, socket } from './classes/Socket.js'
 
 function App() {
   const loginPopup = useRef()
+  const chatPanel = useRef()
   const socketFunction = new SocketFunction()
   const [isSocketConnect, setIsSocketConnect] = useState(false)
 
@@ -53,7 +54,6 @@ function App() {
         loginPopupControl(true, loginMessages.success, 2000)
         setIsSocketConnect(true)
         socket.emit('join', { name: selfName }, (response) => {
-          console.log('join', response)
           setRoomList(response.roomList)
           setUserList(response.userList)
         })
@@ -73,27 +73,21 @@ function App() {
   const setupSocketEventListeners = useCallback(() => {
     const listeners = {
       'add': (object) => {
-        console.log('add', object);
         setUserList((prev) => [...prev, object])
       },
       'remove': (object) => {
-        console.log('remove', object)
         setUserList((prev) => prev.filter(obj => obj.id !== object.id))
       },
       'add-user': (object) => {
-        console.log('add-user', object)
         setCurrentUserIDList((prev) => [...prev, object.id])
       },
       'add-message': (object) => {
-        console.log('add-message', object)
         setCurrentMessageList((prev) => [...prev, object])
       },
       'remove-user': (object) => {
-        console.log('remove-user', object)
         setCurrentUserIDList((prev) => prev.filter(obj => obj !== object.id))
       },
       'user-reName': (object) => {
-        console.log('user-reName', object)
         setUserList((prev) => prev.map((user) =>
           user.id === object.id ? { ...user, name: object.name } : user
         ))
@@ -115,7 +109,6 @@ function App() {
     if (!isSocketConnect || currentRoom === 'Room-List') { return }
 
     socket.emit('join-room', { room: currentRoom }, (response) => {
-      console.log('join-room-response', response)
       setCurrentUserIDList(response.users)
       setCurrentMessageList(response.messages)
     })
@@ -143,13 +136,14 @@ function App() {
             message.messageId === messageId ? { ...message, isSending: false } : message
           );
 
-          console.log(updatedMessages, response.messageId);
           return updatedMessages;
         });
       }
     })
+
     setTimeout(() => {
       setCurrentSelfMessage('')
+      chatPanel.current.scrollTop = chatPanel.current.scrollHeight
     }, 100)
   }, [currentSelfMessage, isSocketConnect])
 
@@ -214,15 +208,15 @@ function App() {
 
 
   return (
-    <div className="m-10 border border-gray-400 px-10 py-5">
+    <div className="m-4 px-4 md:m-10 border border-gray-400 md:px-10 py-5">
 
-      <div className='flex flex-col items-start gap-8 mb-8'>
+      <div className='flex flex-col items-start gap-3 md:gap-8 mb-3 md:mb-8'>
 
-        <div className="flex flex-wrap gap-10 items-center">
-          <div className="inline-flex items-center gap-1 border border-dashed border-gray-300 p-2">
+        <div className="flex w-full md:w-auto flex-col-reverse md:flex-row flex-wrap gap-3 md:gap-10 md:items-center">
+          <div className="inline-flex md:flex-row flex-col md:items-center gap-3 md:gap-1 border border-dashed border-gray-300 p-2">
             <span className="px-2 pt-0.5 text-lg">使用者名稱：</span>
             <input disabled={!isCanName} value={selfName} onInput={(e) => setSelfName(e.target.value)} type="text" className="h-10 border border-black px-1 py-0.5 text-lg" />
-            <button className={`ml-3 border border-black py-1 px-3 ${isSocketConnect ? 'block' : 'hidden'}`} onClick={reNameBtnAction}>
+            <button className={`md:ml-3 border border-black py-1 px-3 ${isSocketConnect ? 'block' : 'hidden'}`} onClick={reNameBtnAction}>
               {(isStartReName) ? '確定' : '重新命名'}
             </button>
           </div>
@@ -232,20 +226,20 @@ function App() {
           </button>
         </div >
 
-        <div className="flex flex-col gap-1 border border-dashed border-gray-300 p-2 ">
-          <div className='flex items-center gap-1'>
+        <div className="flex flex-col gap-3 md:gap-1 border w-full md:w-auto border-dashed border-gray-300 p-2 ">
+          <div className='flex md:items-center flex-col md:flex-row gap-3 md:gap-1'>
             <span className="px-2 pt-0.5 text-lg">登入密碼：</span>
             <input value={password} onInput={(e) => setPassword(e.target.value)} type="password" className="h-10 border border-black px-1 py-0.5 text-lg" />
           </div>
-          <div className='flex items-center gap-1 text-gray-500 italic self-end'>
+          <div className='flex items-center gap-1 text-gray-500 italic md:self-end'>
             <span className="px-2 pt-0.5 text-lg">密碼：</span>
             <div className=''>jin-chat</div>
           </div>
         </div>
 
-        <div className={`items-center gap-1 border border-dashed border-gray-300 p-2 ${isSocketConnect ? '' : 'hidden'}`}>
+        <div className={`md:items-center gap-3 md:gap-1 w-full md:w-auto border border-dashed flex-col md:flex-row border-gray-300 p-2 ${isSocketConnect ? 'flex' : 'hidden'}`}>
           <span className="px-2 pt-0.5 text-lg">選擇房間：</span>
-          <select value={currentRoom} onChange={(e) => { setCurrentRoom(e.target.value) }} className="h-10 w-40 border border-black px-1 py-0.5 text-center text-black">
+          <select value={currentRoom} onChange={(e) => { setCurrentRoom(e.target.value) }} className="h-10 w-full md:w-40 border border-black px-1 py-0.5 text-center text-black">
             <option disabled value={null}>
               Room-List
             </option>
@@ -254,32 +248,36 @@ function App() {
         </div >
       </div>
 
-      <div className="flex flex-wrap gap-10">
-        <div className={`w-80 flex-col gap-1 border border-dashed border-red-300 p-2 ${(isSocketConnect && currentRoom !== 'Room-List') ? 'inline-flex' : 'hidden'}`}>
+      <div className="flex flex-wrap gap-3 md:gap-10">
+        <div className={`md:w-80 flex-col gap-1 w-full border border-dashed border-red-300 p-2 ${(isSocketConnect && currentRoom !== 'Room-List') ? 'inline-flex' : 'hidden'}`}>
           <span className="px-2 pt-0.5 text-lg">房間使用者：</span>
           <hr />
-          <div className="min-h-[100px] px-2">
-            {currentUserList.map((user, index) => { return <div key={index}>{user}</div> })}
+          <div className='overflow-auto h-[100px]'>
+            <div className="px-2">
+              {currentUserList.map((user, index) => { return <div key={index}>{user}</div> })}
+            </div>
           </div>
         </div>
 
-        <div className={`inline-flex w-3/5 min-w-[600px] flex-col gap-1 border border-dashed border-blue-500 p-2 ${(isSocketConnect && currentRoom !== 'Room-List') ? 'inline-flex' : 'hidden'}`}>
+        <div className={`inline-flex w-full lg:w-3/5 lg:min-w-[600px] flex-col gap-1 border border-dashed border-blue-500 p-2 ${(isSocketConnect && currentRoom !== 'Room-List') ? 'inline-flex' : 'hidden'}`}>
           <span className="px-2 pt-0.5 text-lg">對話：</span>
           <hr />
-          <div className="flex min-h-[100px] flex-col gap-3 px-2">
-            {
-              currentMessageList.map((message, index) => {
-                return (
-                  <div key={index} className={isSelfMessage(message.socketId) ? 'flex flex-row-reverse' : 'flex justify-start'}>
-                    <div className={`rounded-md px-4 py-2 text-white duration-300 ${(message?.isSending) ? 'bg-gray-500' : 'bg-black'}`}>
-                      <span className="font-bold">{isSelfMessage(message.socketId) ? '' : userName(message.socketId)} : </span>
-                      <span>{message.message}</span>
+          <div ref={chatPanel} className='overflow-auto scroll-smooth h-[300px]'>
+            <div className="flex flex-col gap-3 px-2">
+              {
+                currentMessageList.map((message, index) => {
+                  return (
+                    <div key={index} className={isSelfMessage(message.socketId) ? 'flex flex-row-reverse' : 'flex justify-start'}>
+                      <div className={`rounded-md px-4 py-2 text-white duration-300 ${(message?.isSending) ? 'bg-gray-500' : 'bg-black'}`}>
+                        <span className="font-bold">{isSelfMessage(message.socketId) ? '' : userName(message.socketId)} : </span>
+                        <span>{message.message}</span>
+                      </div>
                     </div>
-                  </div>
-                )
-              })
-            }
-          </div >
+                  )
+                })
+              }
+            </div >
+          </div>
           <div className="mt-3 flex gap-5 px-2">
             <input value={currentSelfMessage}
               onKeyDown={(e) => { if (e.key === 'Enter') { sendMessage() } }}
