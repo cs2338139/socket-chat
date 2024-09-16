@@ -1,24 +1,28 @@
-import { useEffect, useState, useRef, useMemo } from 'react'
+import { useEffect, useState, useRef, useMemo, useReducer, useCallback } from 'react'
 import { SocketFunction, socket } from './classes/Socket.js'
 
-function App() {
-  const [isSocketConnect, setIsSocketConnect] = useState(false)
-  const socketFunction = new SocketFunction()
-  const [password, setPassword] = useState('')
-  const loginPopup = useRef()
 
+function App() {
+  const loginPopup = useRef()
+  const socketFunction = new SocketFunction()
+  const [isSocketConnect, setIsSocketConnect] = useState(false)
+
+  const [password, setPassword] = useState('')
   const [selfName, setSelfName] = useState('')
+
   const [roomList, setRoomList] = useState([])
   const [userList, setUserList] = useState([])
-
   const [currentUserIDList, setCurrentUserIDList] = useState([])
+
   const [currentMessageList, setCurrentMessageList] = useState([])
   const [currentRoom, setCurrentRoom] = useState('Room-List')
+
   const [currentSelfMessage, setCurrentSelfMessage] = useState('')
   const [isStartReName, setIsStartReName] = useState(false)
 
-  const loginMessages = { login: '快馬加鞭登入中...', success: '登入成功 =)', error: '連線失敗：<br/>' }
+
   const [currentLoginMessage, setCurrentLoginMessage] = useState('')
+  const loginMessages = { login: '快馬加鞭登入中...', success: '登入成功 =)', error: '連線失敗：<br/>' }
 
   useEffect(() => {
     changeRoom()
