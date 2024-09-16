@@ -30,22 +30,26 @@ function App() {
 
   useEffect(() => {
     if (isSocketConnect) return
+    resetState()
+  }, [isSocketConnect])
+
+  const resetState = useCallback(() => {
     setRoomList([])
     setCurrentUserIDList([])
     setCurrentMessageList([])
     setUserList([])
-  }, [isSocketConnect])
+  }, [])
 
-  function startSocket() {
+  const startSocket = useCallback(() => {
     if (!isSocketConnect) {
       socketFunction.startSocket(password)
       loginPopupControl(true, loginMessages.login)
 
-      socket.on('connect_error', (error) => {
+      socket.once('connect_error', (error) => {
         loginPopupControl(true, `${loginMessages.error}${error}`, 2000)
       })
 
-      socket.on('connect', () => {
+      socket.once('connect', () => {
         loginPopupControl(true, loginMessages.success, 2000)
         setIsSocketConnect(true)
         socket.emit('join', { name: selfName }, (response) => {
@@ -59,69 +63,72 @@ function App() {
         setIsSocketConnect(false)
       })
 
-      socket.on('add', (object) => {
-        console.log('add', object)
-        setUserList((prev) => [...prev, object])
-      })
-
-      socket.on('remove', (object) => {
-        console.log('remove', object)
-        setUserList((prev) => prev.filter(obj => obj.id !== object.id))
-      })
-
-      socket.on('add-user', (object) => {
-        console.log('add-user', object)
-        setCurrentUserIDList((prev) => [...prev, object.id])
-      })
-
-      socket.on('add-message', (object) => {
-        console.log('add-message', object)
-        setCurrentMessageList((prev) => [...prev, object])
-      })
-
-      socket.on('remove-user', (object) => {
-        console.log('remove-user', object)
-        setCurrentUserIDList((prev) => prev.filter(obj => obj !== object.id))
-      })
-
-      socket.on('user-reName', (object) => {
-        console.log('user-reName', object)
-
-        setUserList((prev) => {
-          const updatedList = prev.map((user) =>
-            user.id === object.id ? { ...user, name: object.name } : user
-          )
-
-          return updatedList
-        })
-      })
+      setupSocketEventListeners()
     } else {
       socketFunction.disConnect()
       setIsSocketConnect(false)
     }
-  }
+  }, [isSocketConnect, password, selfName])
 
-  function changeRoom() {
-    if (!isSocketConnect) { return }
+  const setupSocketEventListeners = useCallback(() => {
+    const listeners = {
+      'add': (object) => {
+        console.log('add', object);
+        setUserList((prev) => [...prev, object])
+      },
+      'remove': (object) => {
+        console.log('remove', object)
+        setUserList((prev) => prev.filter(obj => obj.id !== object.id))
+      },
+      'add-user': (object) => {
+        console.log('add-user', object)
+        setCurrentUserIDList((prev) => [...prev, object.id])
+      },
+      'add-message': (object) => {
+        console.log('add-message', object)
+        setCurrentMessageList((prev) => [...prev, object])
+      },
+      'remove-user': (object) => {
+        console.log('remove-user', object)
+        setCurrentUserIDList((prev) => prev.filter(obj => obj !== object.id))
+      },
+      'user-reName': (object) => {
+        console.log('user-reName', object)
+        setUserList((prev) => prev.map((user) =>
+          user.id === object.id ? { ...user, name: object.name } : user
+        ))
+      }
+    }
 
-    if (currentRoom !== 'Room-List') {
-      socket.emit('join-room', { room: currentRoom }, (response) => {
-        console.log('join-room-response', response)
-        setCurrentUserIDList(response.users)
-        setCurrentMessageList(response.messages)
+    Object.entries(listeners).forEach(([event, handle]) => {
+      socket.on(event, handle)
+    })
+
+    return () => {
+      Object.entries(listeners).forEach(([event, handle]) => {
+        socket.off(event, handle)
       })
     }
-  }
+  }, [])
 
-  function reName() {
+  const changeRoom = useCallback(() => {
+    if (!isSocketConnect || currentRoom === 'Room-List') { return }
+
+    socket.emit('join-room', { room: currentRoom }, (response) => {
+      console.log('join-room-response', response)
+      setCurrentUserIDList(response.users)
+      setCurrentMessageList(response.messages)
+    })
+  }, [currentRoom, isSocketConnect])
+
+  const reName = useCallback(() => {
     if (!isSocketConnect) { return }
 
     socket.emit('user-reName', { name: selfName })
-  }
+  }, [selfName, isSocketConnect])
 
-  function sendMessage() {
-    if (!isSocketConnect) { return }
-    if (currentSelfMessage == '') { return }
+  const sendMessage = useCallback(() => {
+    if (!isSocketConnect || currentSelfMessage == '') { return }
 
     const currentTime = new Date().getTime()
     const newMessage = { socketId: socket.id, message: currentSelfMessage, isSending: true, messageId: currentTime }
@@ -144,17 +151,17 @@ function App() {
     setTimeout(() => {
       setCurrentSelfMessage('')
     }, 100)
-  }
+  }, [currentSelfMessage, isSocketConnect])
 
-  const userName = (id) => {
+  const userName = useCallback((id) => {
     const user = userList.find(x => x.id === id)
 
     return (user) ? user.name : '用戶已離開'
-  }
+  }, [userList])
 
-  const isSelfMessage = (id) => {
+  const isSelfMessage = useCallback((id) => {
     return (id === socket.id)
-  }
+  }, [])
 
   const isCanName = useMemo(() => {
     if (isStartReName) { return true }
@@ -182,35 +189,28 @@ function App() {
     return list
   }, [currentUserIDList, userList])
 
-  const reNameBtnAction = () => {
-    if (isStartReName) {
-      setIsStartReName(false)
-      reName()
-    }
-    else {
-      setIsStartReName(true)
-    }
-  }
+  const reNameBtnAction = useCallback(() => {
+    setIsStartReName((prev) => {
+      if (prev) { reName() }
+      return !prev
+    })
+  }, [reName])
 
-  function loginPopupControl(state, string, timeDown = 0) {
+  const loginPopupControl = useCallback((state, string, timeDown = 0) => {
     if (!state) {
-      loginPopup.current.style.display = 'none'
-
-      return
+      loginPopup.current.style.display = 'none';
+      return;
     }
 
-    loginPopup.current.style.display = 'flex'
-    setCurrentLoginMessage(string)
+    loginPopup.current.style.display = 'flex';
+    setCurrentLoginMessage(string);
 
     if (timeDown !== 0) {
       setTimeout(() => {
-        loginPopup.current.style.display = 'none'
-      }, timeDown)
+        loginPopup.current.style.display = 'none';
+      }, timeDown);
     }
-  }
-
-
-
+  }, []);
 
 
   return (
@@ -232,9 +232,15 @@ function App() {
           </button>
         </div >
 
-        <div className="flex items-center gap-1 border border-dashed border-gray-300 p-2 ">
-          <span className="px-2 pt-0.5 text-lg">登入密碼：</span>
-          <input value={password} onInput={(e) => setPassword(e.target.value)} type="password" className="h-10 border border-black px-1 py-0.5 text-lg" />
+        <div className="flex flex-col gap-1 border border-dashed border-gray-300 p-2 ">
+          <div className='flex items-center gap-1'>
+            <span className="px-2 pt-0.5 text-lg">登入密碼：</span>
+            <input value={password} onInput={(e) => setPassword(e.target.value)} type="password" className="h-10 border border-black px-1 py-0.5 text-lg" />
+          </div>
+          <div className='flex items-center gap-1 text-gray-500 italic self-end'>
+            <span className="px-2 pt-0.5 text-lg">密碼：</span>
+            <div className=''>jin-chat</div>
+          </div>
         </div>
 
         <div className={`items-center gap-1 border border-dashed border-gray-300 p-2 ${isSocketConnect ? '' : 'hidden'}`}>
