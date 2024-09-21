@@ -2,49 +2,8 @@
 import { Unit } from "../Class/Unit.js";
 import { event } from "../Data/enum.js";
 
-// default
-export function mainStart() {
-  //中間件
-  Unit.Socket.io.use((socket, next) => {
-    //人數控管
-    if (Unit.isCanJoin()) {
-      next();
-    } else {
-      Unit.Log.info(`client is max ,${socket.id} will disConnect`);
-      next(new Error("Client is max"));
-    }
-  });
-  //主要邏輯
-  Unit.Socket.io.on(event.on.connection, (socket) => {
-    Unit.Log.connect(`${socket.id} is connect`);
 
-    socket.once(event.on.join, (object) => {
-      const client = Unit.createClientData(socket.id, object.color, object?.pos.x, object?.pos.y);
-      socket.broadcast.emit(event.emit.add, client);
-      socket.emit(event.emit.init, { clientList: Unit.store.clientList });
-
-      Unit.store.clientList.push(client);
-    });
-
-    socket.on(event.on.updatePos, (object) => {
-      socket.broadcast.emit(event.emit.updatePos, { id: socket.id, pos: object?.pos });
-
-      Unit.getClient(socket.id, (client) => {
-        client.setPos(object.pos.x, object.pos.y);
-      });
-    });
-
-    socket.once(event.on.disconnect, () => {
-      Unit.Log.disconnect(`${socket.id} is disconnect`);
-      socket.broadcast.emit(event.emit.remove, { id: socket.id });
-
-      Unit.store.clientList = Unit.store.clientList.filter((x) => x.id !== socket.id);
-    });
-  });
-}
-
-// room
-export function roomStart() {
+export function main() {
   (function init() {
     Unit.createRooms(Unit.setting.main.roomCount);
     Unit.Log.info(`create rooms: ${Unit.setting.main.roomCount}`);
@@ -137,73 +96,6 @@ export function roomStart() {
       Unit.Socket.io.emit(event.emit.remove, { id: socket.id });
       Unit.Log.info(`${socket.id} remove chat`);
 
-      Unit.Log.disconnect(`${socket.id} is disconnect`);
-    });
-  });
-}
-
-// canvas
-export function canvasStart() {
-  Unit.Socket.io.on(event.on.connection, (socket) => {
-    Unit.Log.connect(`${socket.id} is connect`);
-
-    socket.emit(event.emit.init, { paths: Unit.store.paths, imageBase64s: Unit.store.imageBase64s });
-
-    socket.on(event.on.canvasDrawStart, (object) => {
-      object.id = socket.id;
-      socket.broadcast.volatile.emit(event.emit.canvasDrawStart, object);
-      const path = Unit.createPath(object.color, object.id);
-      Unit.store.paths.push(path);
-    });
-
-    socket.on(event.on.canvasDrawing, (object) => {
-      object.id = socket.id;
-      socket.broadcast.volatile.emit(event.emit.canvasDrawing, object);
-
-      Unit.getPath(socket.id, (path) => {
-        path.path.push(object.point);
-      });
-    });
-
-    socket.on(event.on.canvasDrawEnd, () => {
-      socket.broadcast.volatile.emit(event.emit.canvasDrawEnd, { id: socket.id });
-
-      Unit.getPath(socket.id, (path) => {
-        delete path.id;
-      });
-    });
-
-    socket.on(event.on.canvasImage, (object) => {
-      socket.broadcast.emit(event.emit.canvasImage, object);
-      const imageBase64 = Unit.createImageBase64(object.base64, object.pos, object.id);
-      Unit.store.imageBase64s.push(imageBase64);
-    });
-
-    socket.on(event.on.canvasSelectStart, (object) => {
-      socket.broadcast.emit(event.emit.canvasSelectStart, object);
-
-      Unit.getImageBase64(object.id, (imageBase64) => {
-        imageBase64.selectColor = object.selectColor;
-      });
-    });
-
-    socket.on(event.on.canvasSelectDragged, (object) => {
-      socket.broadcast.volatile.emit(event.emit.canvasSelectDragged, object);
-
-      Unit.getImageBase64(object.id, (imageBase64) => {
-        imageBase64.pos = object.pos;
-      });
-    });
-
-    socket.on(event.on.canvasSelectEnd, (object) => {
-      socket.broadcast.emit(event.emit.canvasSelectEnd, object);
-
-      Unit.getImageBase64(object.id, (imageBase64) => {
-        imageBase64.selectColor = "";
-      });
-    });
-
-    socket.once(event.on.disconnect, () => {
       Unit.Log.disconnect(`${socket.id} is disconnect`);
     });
   });

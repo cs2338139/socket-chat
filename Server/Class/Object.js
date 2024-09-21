@@ -1,27 +1,3 @@
-//物件Class
-
-// #region for default
-export class ClientData {
-  constructor(id, color, pos) {
-    this.id = id;
-    this.color = color;
-    this.pos = pos;
-  }
-  setPos(x, y) {
-    this.pos = new Vector2(x, y);
-  }
-}
-
-export class Vector2 {
-  constructor(x = 0, y = 0) {
-    this.x = x;
-    this.y = y;
-  }
-}
-// #endregion
-
-// #region for room
-
 export class userData {
   constructor(id, name) {
     this.id = id;
@@ -62,24 +38,3 @@ export class MessageDate {
     this.message = message;
   }
 }
-// #endregion
-
-// #region for canvas
-export class PathData {
-  constructor(color = "#000000", id = null) {
-    this.color = color;
-    this.id = id;
-  }
-
-  path = [];
-}
-
-export class ImageBase64 {
-  constructor(base64, pos, id) {
-    this.base64 = base64;
-    this.pos = pos;
-    this.id = id;
-  }
-  selectColor = "";
-}
-// #endregion

@@ -33,9 +33,4 @@ instrument(Unit.Socket.io, {
 
 Unit.Socket.io.listen(Unit.setting.connect.port, console.log(`server is start: cors : ${Unit.setting.connect.corsUrl}, Server socket : ${Unit.setting.connect.port}`));
 
-//啟動主邏輯
-// Unit.mainStart();
-
-Unit.roomStart();
-
-// Unit.canvasStart();
+Unit.mainStart();
