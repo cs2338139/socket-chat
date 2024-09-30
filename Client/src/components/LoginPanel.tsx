@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useMemo, useReducer, useCallback } from 'react'
 import { useSocket } from '@contexts/SocketContext';
 import { useData } from '@contexts/DataContext';
+import { Box, TextField, FormControl, Button, Select, MenuItem, InputLabel } from '@mui/material'
 interface Props {
     isSocketConnect: Boolean;
     startSocket: () => void;
@@ -42,25 +43,30 @@ function LoginPanel(props: Props) {
 
     return (
         <>
-            <div className="flex w-full md:w-auto flex-col-reverse md:flex-row flex-wrap gap-3 md:gap-10 md:items-center">
+            <Box className="flex w-full md:w-auto flex-col-reverse md:flex-row flex-wrap gap-3 md:gap-10 md:items-center">
                 <div className="inline-flex md:flex-row flex-col md:items-center gap-3 md:gap-1 border border-dashed border-gray-300 p-2">
                     <span className="px-2 pt-0.5 text-lg">使用者名稱：</span>
-                    <input disabled={!isCanName} value={selfNameState?.value} onInput={(e) => selfNameState?.set((e.target as HTMLInputElement).value)}
-                        type="text" className="h-10 border border-black px-1 py-0.5 text-lg" />
-                    <button className={`md:ml-3 border border-black py-1 px-3 ${isSocketConnect ? 'block' : 'hidden'}`} onClick={reNameBtnAction}>
+                    <TextField size="small" sx={{}} variant="outlined" disabled={!isCanName} value={selfNameState?.value} onInput={(e) => selfNameState?.set((e.target as HTMLInputElement).value)} />
+                    <Button
+                        variant='outlined'
+                        sx={{ display: (isSocketConnect) ? 'block' : 'none' }}
+                        onClick={reNameBtnAction}>
                         {(isStartReName) ? '確定' : '重新命名'}
-                    </button>
+                    </Button>
                 </div>
 
-                <button disabled={!isCanConnect} className={`border border-black px-4 py-2 rounded-m`} onClick={startSocket}>
+                <Button
+                    variant='contained'
+                    disabled={!isCanConnect}
+                    onClick={startSocket}>
                     {isSocketConnect ? 'Disconnect' : 'Connect'}
-                </button>
-            </div >
+                </Button>
+            </Box >
 
             <div className="flex flex-col gap-3 md:gap-1 border w-full md:w-auto border-dashed border-gray-300 p-2 ">
                 <div className='flex md:items-center flex-col md:flex-row gap-3 md:gap-1'>
                     <span className="px-2 pt-0.5 text-lg">登入密碼：</span>
-                    <input value={passWordState?.value} onInput={(e) => passWordState?.set((e.target as HTMLInputElement).value)} type="password" className="h-10 border border-black px-1 py-0.5 text-lg" />
+                    <TextField size="small" sx={{}} variant="outlined" value={passWordState?.value} onInput={(e) => passWordState?.set((e.target as HTMLInputElement).value)} type="password" />
                 </div>
                 <div className='flex items-center gap-1 text-gray-500 italic md:self-end'>
                     <span className="px-2 pt-0.5 text-lg">密碼：</span>
