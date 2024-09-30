@@ -1,15 +1,15 @@
 import { useEffect, useState, useRef, useMemo, useReducer, useCallback } from 'react'
-import { SocketFunction, socket } from '../classes/Socket'
-
+import { useSocket } from '@contexts/SocketContext';
+import { useData } from '@contexts/DataContext';
+import { LoginPanel } from '@components';
 
 function App() {
     const loginPopup = useRef<HTMLDivElement>()
     const chatPanel = useRef<HTMLDivElement>()
-    const socketFunction = new SocketFunction()
-    const [isSocketConnect, setIsSocketConnect] = useState<Boolean>(false)
 
-    const [password, setPassword] = useState<string>('')
-    const [selfName, setSelfName] = useState<string>('')
+    const [isSocketConnect, setIsSocketConnect] = useState<Boolean>(false)
+    const { socketRef, socketFunction } = useSocket()
+    const { passWordState, selfNameState } = useData()
 
     const [roomList, setRoomList] = useState<Room[]>([])
     const [userList, setUserList] = useState<User[]>([])
@@ -19,8 +19,6 @@ function App() {
     const [currentRoom, setCurrentRoom] = useState<Room>('Room-List')
 
     const [currentSelfMessage, setCurrentSelfMessage] = useState<MessageContent>('')
-    const [isStartReName, setIsStartReName] = useState<Boolean>(false)
-
 
     const [currentLoginMessage, setCurrentLoginMessage] = useState<string>('')
     const loginMessages = { login: '快馬加鞭登入中...', success: '登入成功 =)', error: '連線失敗：<br/>' }
@@ -59,23 +57,23 @@ function App() {
 
     const startSocket = useCallback(() => {
         if (!isSocketConnect) {
-            socketFunction.startSocket(password)
+            socketFunction.connect(passWordState?.value)
             loginPopupControl({ state: true, string: loginMessages.login })
 
-            socket.once('connect_error', (error: any) => {
+            socketRef.current.once('connect_error', (error: any) => {
                 loginPopupControl({ state: true, string: `${loginMessages.error}${error}`, timeDown: 2000 })
             })
 
-            socket.once('connect', () => {
+            socketRef.current.once('connect', () => {
                 loginPopupControl({ state: true, string: loginMessages.success, timeDown: 2000 })
                 setIsSocketConnect(true)
-                socket.emit('join', { name: selfName }, (response: { roomList: Room[], userList: User[] }) => {
+                socketRef.current.emit('join', { name: selfNameState?.value }, (response: { roomList: Room[], userList: User[] }) => {
                     setRoomList(response.roomList)
                     setUserList(response.userList)
                 })
             })
 
-            socket.on('disconnect', () => {
+            socketRef.current.on('disconnect', () => {
                 setIsSocketConnect(false)
             })
 
@@ -84,7 +82,7 @@ function App() {
             socketFunction.disConnect()
             setIsSocketConnect(false)
         }
-    }, [isSocketConnect, password, selfName])
+    }, [isSocketConnect, passWordState?.value, selfNameState?.value])
 
     const setupSocketEventListeners = useCallback(() => {
         const listeners = {
@@ -111,12 +109,12 @@ function App() {
         }
 
         Object.entries(listeners).forEach(([event, handle]) => {
-            socket.on(event, handle)
+            socketRef.current.on(event, handle)
         })
 
         return () => {
             Object.entries(listeners).forEach(([event, handle]) => {
-                socket.off(event, handle)
+                socketRef.current.off(event, handle)
             })
         }
     }, [])
@@ -124,26 +122,20 @@ function App() {
     const changeRoom = useCallback(() => {
         if (!isSocketConnect || currentRoom === 'Room-List') { return }
 
-        socket.emit('join-room', { room: currentRoom }, (response: { users: SocketID[], messages: Message[] }) => {
+        socketRef.current.emit('join-room', { room: currentRoom }, (response: { users: SocketID[], messages: Message[] }) => {
             setCurrentUserIDList(response.users)
             setCurrentMessageList(response.messages)
         })
     }, [currentRoom, isSocketConnect])
 
-    const reName = useCallback(() => {
-        if (!isSocketConnect) { return }
-
-        socket.emit('user-reName', { name: selfName })
-    }, [selfName, isSocketConnect])
-
     const sendMessage = useCallback(() => {
         if (!isSocketConnect || currentSelfMessage == '') { return }
 
         const currentTime = new Date().getTime()
-        const newMessage: Message = { socketId: socket.id, message: currentSelfMessage, isSending: true, messageId: currentTime }
+        const newMessage: Message = { socketId: socketRef.current.id, message: currentSelfMessage, isSending: true, messageId: currentTime }
 
         setCurrentMessageList((prev) => [...prev, newMessage])
-        socket.emit('add-message', { message: currentSelfMessage, messageId: currentTime }, (response: { status: number, messageId: MessageID }) => {
+        socketRef.current.emit('add-message', { message: currentSelfMessage, messageId: currentTime }, (response: { status: number, messageId: MessageID }) => {
             if (response.status === 200) {
                 const messageId: number = response.messageId
 
@@ -172,20 +164,12 @@ function App() {
     }, [userList])
 
     const isSelfMessage = useCallback((id: SocketID) => {
-        return (id === socket.id)
+        return (id === socketRef.current.id)
     }, [])
 
-    const isCanName = useMemo(() => {
-        if (isStartReName) { return true }
-        if (isSocketConnect) { return false }
 
-        return true
 
-    }, [isSocketConnect, isStartReName])
 
-    const isCanConnect = useMemo(() => {
-        return (password !== '' && selfName !== '')
-    }, [password, selfName])
 
     const currentUserList = useMemo(() => {
         const list: UserName[] = []
@@ -201,12 +185,7 @@ function App() {
         return list
     }, [currentUserIDList, userList])
 
-    const reNameBtnAction = useCallback(() => {
-        setIsStartReName((prev) => {
-            if (prev) { reName() }
-            return !prev
-        })
-    }, [reName])
+
 
     interface LoginPopupControlProps {
         state: boolean;
@@ -237,32 +216,10 @@ function App() {
         <div className="m-4 px-4 md:m-10 border border-gray-400 md:px-10 py-5">
 
             <div className='flex flex-col items-start gap-3 md:gap-8 mb-3 md:mb-8'>
-
-                <div className="flex w-full md:w-auto flex-col-reverse md:flex-row flex-wrap gap-3 md:gap-10 md:items-center">
-                    <div className="inline-flex md:flex-row flex-col md:items-center gap-3 md:gap-1 border border-dashed border-gray-300 p-2">
-                        <span className="px-2 pt-0.5 text-lg">使用者名稱：</span>
-                        <input disabled={!isCanName} value={selfName} onInput={(e) => setSelfName((e.target as HTMLInputElement).value)}
-                            type="text" className="h-10 border border-black px-1 py-0.5 text-lg" />
-                        <button className={`md:ml-3 border border-black py-1 px-3 ${isSocketConnect ? 'block' : 'hidden'}`} onClick={reNameBtnAction}>
-                            {(isStartReName) ? '確定' : '重新命名'}
-                        </button>
-                    </div>
-
-                    <button disabled={!isCanConnect} className={`border border-black px-4 py-2 rounded-m`} onClick={startSocket}>
-                        {isSocketConnect ? 'Disconnect' : 'Connect'}
-                    </button>
-                </div >
-
-                <div className="flex flex-col gap-3 md:gap-1 border w-full md:w-auto border-dashed border-gray-300 p-2 ">
-                    <div className='flex md:items-center flex-col md:flex-row gap-3 md:gap-1'>
-                        <span className="px-2 pt-0.5 text-lg">登入密碼：</span>
-                        <input value={password} onInput={(e) => setPassword((e.target as HTMLInputElement).value)} type="password" className="h-10 border border-black px-1 py-0.5 text-lg" />
-                    </div>
-                    <div className='flex items-center gap-1 text-gray-500 italic md:self-end'>
-                        <span className="px-2 pt-0.5 text-lg">密碼：</span>
-                        <div className=''>jin-chat</div>
-                    </div>
-                </div>
+                <LoginPanel
+                    isSocketConnect={isSocketConnect}
+                    startSocket={startSocket}
+                />
 
                 <div className={`md:items-center gap-3 md:gap-1 w-full md:w-auto border border-dashed flex-col md:flex-row border-gray-300 p-2 ${isSocketConnect ? 'flex' : 'hidden'}`}>
                     <span className="px-2 pt-0.5 text-lg">選擇房間：</span>
