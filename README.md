@@ -27,6 +27,8 @@
 - Socket.io
 - Tailwind css
 - Vite
+- TypeScript
+- Material UI
 
 ## 安裝
 
