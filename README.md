@@ -37,7 +37,7 @@ Node.js 版本建議為：`v18.19.0` 以上...
 ### 取得專案
 
 ```bash
-git clone https://github.com/cs2338139/socket-draw.git
+git clone https://github.com/cs2338139/socket-chat.git
 ```
 
 ## Client端
