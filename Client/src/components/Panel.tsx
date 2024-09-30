@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useMemo, useReducer, useCallback } from 'react'
 import { useSocket } from '@contexts/SocketContext';
 import { useData } from '@contexts/DataContext';
-import { LoginPanel, SelectRoom } from '@components';
+import { LoginPanel, SelectRoom, UserList } from '@components';
 import { State, Room, User, Message, SocketID, MessageContent, MessageID, UserName } from '@interfaces'
 
 function App() {
@@ -152,19 +152,6 @@ function App() {
         return (id === socketRef.current.id)
     }, [])
 
-    const currentUserList = useMemo(() => {
-        const list: UserName[] = []
-
-        currentUserIDList.forEach((id) => {
-            const user = userList.find(x => x.id === id)
-
-            if (user) {
-                list.push(user.name)
-            }
-        })
-
-        return list
-    }, [currentUserIDList, userList])
 
 
 
@@ -210,15 +197,11 @@ function App() {
             </div>
 
             <div className="flex flex-wrap gap-3 md:gap-10">
-                <div className={`md:w-80 flex-col gap-1 w-full border border-dashed border-red-300 p-2 ${(isSocketConnect && currentRoom !== 'Room-List') ? 'inline-flex' : 'hidden'}`}>
-                    <span className="px-2 pt-0.5 text-lg">房間使用者：</span>
-                    <hr />
-                    <div className='overflow-auto h-[100px]'>
-                        <div className="px-2">
-                            {currentUserList.map((user, index) => { return <div key={index}>{user}</div> })}
-                        </div>
-                    </div>
-                </div>
+                <UserList
+                    isSocketConnect={isSocketConnect}
+                    currentUserIDList={currentUserIDList}
+                    userList={userList}
+                />
 
                 <div className={`inline-flex w-full lg:w-3/5 lg:min-w-[600px] flex-col gap-1 border border-dashed border-blue-500 p-2 ${(isSocketConnect && currentRoom !== 'Room-List') ? 'inline-flex' : 'hidden'}`}>
                     <span className="px-2 pt-0.5 text-lg">對話：</span>
