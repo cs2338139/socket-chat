@@ -1,12 +1,11 @@
 import { useEffect, useState, useRef, useMemo, useReducer, useCallback } from 'react'
 import { useSocket } from '@contexts/SocketContext';
 import { useData } from '@contexts/DataContext';
-import { LoginPanel, SelectRoom, UserList } from '@components';
+import { LoginPanel, LoginPopup, SelectRoom, UserList, ChatPanel } from '@components';
 import { State, Room, User, Message, SocketID, MessageContent, MessageID, UserName } from '@interfaces'
 
 function App() {
-    const loginPopup = useRef<HTMLDivElement>()
-    const chatPanel = useRef<HTMLDivElement>()
+    const loginPopup = useRef<any>()
 
     const [isSocketConnect, setIsSocketConnect] = useState<Boolean>(false)
     const { socketRef, socketFunction } = useSocket()
@@ -19,9 +18,6 @@ function App() {
     const [currentMessageList, setCurrentMessageList] = useState<Message[]>([])
     const [currentRoom, setCurrentRoom] = useState<Room>('Room-List')
 
-    const [currentSelfMessage, setCurrentSelfMessage] = useState<MessageContent>('')
-
-    const [currentLoginMessage, setCurrentLoginMessage] = useState<string>('')
     const loginMessages = { login: '快馬加鞭登入中...', success: '登入成功 =)', error: '連線失敗：<br/>' }
 
     useEffect(() => {
@@ -43,14 +39,14 @@ function App() {
     const startSocket = useCallback(() => {
         if (!isSocketConnect) {
             socketFunction.connect(passWordState?.value)
-            loginPopupControl({ state: true, string: loginMessages.login })
+            loginPopup.current.loginPopupControl({ state: true, string: loginMessages.login })
 
             socketRef.current.once('connect_error', (error: any) => {
-                loginPopupControl({ state: true, string: `${loginMessages.error}${error}`, timeDown: 2000 })
+                loginPopup.current.loginPopupControl({ state: true, string: `${loginMessages.error}${error}`, timeDown: 2000 })
             })
 
             socketRef.current.once('connect', () => {
-                loginPopupControl({ state: true, string: loginMessages.success, timeDown: 2000 })
+                loginPopup.current.loginPopupControl({ state: true, string: loginMessages.success, timeDown: 2000 })
                 setIsSocketConnect(true)
                 socketRef.current.emit('join', { name: selfNameState?.value }, (response: { roomList: Room[], userList: User[] }) => {
                     setRoomList(response.roomList)
@@ -113,73 +109,6 @@ function App() {
         })
     }, [currentRoom, isSocketConnect])
 
-    const sendMessage = useCallback(() => {
-        if (!isSocketConnect || currentSelfMessage == '') { return }
-
-        const currentTime = new Date().getTime()
-        const newMessage: Message = { socketId: socketRef.current.id, message: currentSelfMessage, isSending: true, messageId: currentTime }
-
-        setCurrentMessageList((prev) => [...prev, newMessage])
-        socketRef.current.emit('add-message', { message: currentSelfMessage, messageId: currentTime }, (response: { status: number, messageId: MessageID }) => {
-            if (response.status === 200) {
-                const messageId: number = response.messageId
-
-                setCurrentMessageList((prevMessages: Message[]) => {
-                    const updatedMessages = prevMessages.map((message: Message) =>
-                        message.messageId === messageId ? { ...message, isSending: false } : message
-                    );
-
-                    return updatedMessages;
-                });
-            }
-        })
-
-        setTimeout(() => {
-            setCurrentSelfMessage('')
-            if (chatPanel.current) {
-                chatPanel.current.scrollTop = chatPanel.current.scrollHeight
-            }
-        }, 100)
-    }, [currentSelfMessage, isSocketConnect])
-
-    const userName = useCallback((id: SocketID) => {
-        const user = userList.find((x: User) => x.id === id)
-
-        return (user) ? user.name : '用戶已離開'
-    }, [userList])
-
-    const isSelfMessage = useCallback((id: SocketID) => {
-        return (id === socketRef.current.id)
-    }, [])
-
-
-
-
-    interface LoginPopupControlProps {
-        state: boolean;
-        string: string;
-        timeDown?: number;
-    }
-
-    const loginPopupControl = useCallback(({ state, string, timeDown = 0 }: LoginPopupControlProps) => {
-        if (!loginPopup.current) return;
-        if (!state) {
-            loginPopup.current.style.display = 'none';
-            return;
-        }
-
-        loginPopup.current.style.display = 'flex';
-        setCurrentLoginMessage(string);
-
-        if (timeDown !== 0) {
-            setTimeout(() => {
-                if (!loginPopup.current) return;
-                loginPopup.current.style.display = 'none';
-            }, timeDown);
-        }
-    }, []);
-
-
     return (
         <div className="m-4 px-4 md:m-10 border border-gray-400 md:px-10 py-5">
 
@@ -201,44 +130,19 @@ function App() {
                     isSocketConnect={isSocketConnect}
                     currentUserIDList={currentUserIDList}
                     userList={userList}
+                    currentRoom={currentRoom}
                 />
-
-                <div className={`inline-flex w-full lg:w-3/5 lg:min-w-[600px] flex-col gap-1 border border-dashed border-blue-500 p-2 ${(isSocketConnect && currentRoom !== 'Room-List') ? 'inline-flex' : 'hidden'}`}>
-                    <span className="px-2 pt-0.5 text-lg">對話：</span>
-                    <hr />
-                    <div ref={chatPanel} className='overflow-auto scroll-smooth h-[300px]'>
-                        <div className="flex flex-col gap-3 px-2">
-                            {
-                                currentMessageList.map((message, index) => {
-                                    return (
-                                        <div key={index} className={isSelfMessage(message.socketId) ? 'flex flex-row-reverse' : 'flex justify-start'}>
-                                            <div className={`rounded-md px-4 py-2 text-white duration-300 ${(message?.isSending) ? 'bg-gray-500' : 'bg-black'}`}>
-                                                <span className="font-bold">{isSelfMessage(message.socketId) ? '' : userName(message.socketId)} : </span>
-                                                <span>{message.message}</span>
-                                            </div>
-                                        </div>
-                                    )
-                                })
-                            }
-                        </div >
-                    </div>
-                    <div className="mt-3 flex gap-5 px-2">
-                        <input value={currentSelfMessage}
-                            onKeyDown={(e) => { if (e.key === 'Enter') { sendMessage() } }}
-                            onInput={(e) => setCurrentSelfMessage((e.target as HTMLInputElement).value)}
-                            type="text" className="h-10 w-full border border-black px-1 py-0.5 text-lg" />
-                        <button className="w-20 border border-black py-1 px-3" onClick={sendMessage}>
-                            發送
-                        </button>
-                    </div >
-                </div >
+                <ChatPanel
+                    isSocketConnect={isSocketConnect}
+                    currentRoom={currentRoom}
+                    currentMessageList={currentMessageList}
+                    userList={userList}
+                    setCurrentMessageList={setCurrentMessageList}
+                />
             </div >
 
-            <div ref={loginPopup} className="fixed top-0 left-0 hidden h-screen w-full flex-col items-center justify-center bg-black/30">
-                <div className="flex aspect-video h-[200px] flex-col items-center justify-center rounded-md border border-black bg-white text-xl">
-                    <div className="text-center" dangerouslySetInnerHTML={{ __html: currentLoginMessage }}></div>
-                </div>
-            </div>
+            <LoginPopup
+                ref={loginPopup} />
         </div >
     )
 }

@@ -1,14 +1,15 @@
 import { useMemo } from 'react';
-import { SocketID, User, UserName } from '@interfaces'
+import { SocketID, User, UserName, Room } from '@interfaces'
 
 interface Props {
     isSocketConnect: Boolean;
     currentUserIDList: SocketID[];
     userList: User[];
+    currentRoom: Room
 }
 
 function RoomList(props: Props) {
-    const { isSocketConnect, currentUserIDList, userList } = props;
+    const { isSocketConnect, currentUserIDList, userList, currentRoom } = props;
 
     const currentUserList = useMemo(() => {
         const list: UserName[] = []
