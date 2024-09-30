@@ -3,27 +3,43 @@ import { SocketFunction, socket } from '../classes/Socket'
 
 
 function App() {
-    const loginPopup = useRef()
-    const chatPanel = useRef()
+    const loginPopup = useRef<HTMLDivElement>()
+    const chatPanel = useRef<HTMLDivElement>()
     const socketFunction = new SocketFunction()
-    const [isSocketConnect, setIsSocketConnect] = useState(false)
+    const [isSocketConnect, setIsSocketConnect] = useState<Boolean>(false)
 
-    const [password, setPassword] = useState('')
-    const [selfName, setSelfName] = useState('')
+    const [password, setPassword] = useState<string>('')
+    const [selfName, setSelfName] = useState<string>('')
 
-    const [roomList, setRoomList] = useState([])
-    const [userList, setUserList] = useState([])
-    const [currentUserIDList, setCurrentUserIDList] = useState([])
+    const [roomList, setRoomList] = useState<Room[]>([])
+    const [userList, setUserList] = useState<User[]>([])
+    const [currentUserIDList, setCurrentUserIDList] = useState<SocketID[]>([])
 
-    const [currentMessageList, setCurrentMessageList] = useState([])
-    const [currentRoom, setCurrentRoom] = useState('Room-List')
+    const [currentMessageList, setCurrentMessageList] = useState<Message[]>([])
+    const [currentRoom, setCurrentRoom] = useState<Room>('Room-List')
 
-    const [currentSelfMessage, setCurrentSelfMessage] = useState('')
-    const [isStartReName, setIsStartReName] = useState(false)
+    const [currentSelfMessage, setCurrentSelfMessage] = useState<MessageContent>('')
+    const [isStartReName, setIsStartReName] = useState<Boolean>(false)
 
 
-    const [currentLoginMessage, setCurrentLoginMessage] = useState('')
+    const [currentLoginMessage, setCurrentLoginMessage] = useState<string>('')
     const loginMessages = { login: '快馬加鞭登入中...', success: '登入成功 =)', error: '連線失敗：<br/>' }
+
+    type SocketID = string
+    type Room = string
+    type MessageID = number
+    type MessageContent = string
+    type UserName = string
+    interface Message {
+        socketId: SocketID;
+        message: MessageContent;
+        isSending?: boolean;
+        messageId?: MessageID;
+    }
+    interface User {
+        id: SocketID;
+        name: UserName;
+    }
 
     useEffect(() => {
         changeRoom()
@@ -44,16 +60,16 @@ function App() {
     const startSocket = useCallback(() => {
         if (!isSocketConnect) {
             socketFunction.startSocket(password)
-            loginPopupControl(true, loginMessages.login)
+            loginPopupControl({ state: true, string: loginMessages.login })
 
-            socket.once('connect_error', (error) => {
-                loginPopupControl(true, `${loginMessages.error}${error}`, 2000)
+            socket.once('connect_error', (error: any) => {
+                loginPopupControl({ state: true, string: `${loginMessages.error}${error}`, timeDown: 2000 })
             })
 
             socket.once('connect', () => {
-                loginPopupControl(true, loginMessages.success, 2000)
+                loginPopupControl({ state: true, string: loginMessages.success, timeDown: 2000 })
                 setIsSocketConnect(true)
-                socket.emit('join', { name: selfName }, (response) => {
+                socket.emit('join', { name: selfName }, (response: { roomList: Room[], userList: User[] }) => {
                     setRoomList(response.roomList)
                     setUserList(response.userList)
                 })
@@ -72,22 +88,22 @@ function App() {
 
     const setupSocketEventListeners = useCallback(() => {
         const listeners = {
-            'add': (object) => {
-                setUserList((prev) => [...prev, object])
+            'add': (object: User) => {
+                setUserList((prev: User[]) => [...prev, object])
             },
-            'remove': (object) => {
+            'remove': (object: User) => {
                 setUserList((prev) => prev.filter(obj => obj.id !== object.id))
             },
-            'add-user': (object) => {
+            'add-user': (object: User) => {
                 setCurrentUserIDList((prev) => [...prev, object.id])
             },
-            'add-message': (object) => {
+            'add-message': (object: Message) => {
                 setCurrentMessageList((prev) => [...prev, object])
             },
-            'remove-user': (object) => {
+            'remove-user': (object: User) => {
                 setCurrentUserIDList((prev) => prev.filter(obj => obj !== object.id))
             },
-            'user-reName': (object) => {
+            'user-reName': (object: User) => {
                 setUserList((prev) => prev.map((user) =>
                     user.id === object.id ? { ...user, name: object.name } : user
                 ))
@@ -108,7 +124,7 @@ function App() {
     const changeRoom = useCallback(() => {
         if (!isSocketConnect || currentRoom === 'Room-List') { return }
 
-        socket.emit('join-room', { room: currentRoom }, (response) => {
+        socket.emit('join-room', { room: currentRoom }, (response: { users: SocketID[], messages: Message[] }) => {
             setCurrentUserIDList(response.users)
             setCurrentMessageList(response.messages)
         })
@@ -124,15 +140,15 @@ function App() {
         if (!isSocketConnect || currentSelfMessage == '') { return }
 
         const currentTime = new Date().getTime()
-        const newMessage = { socketId: socket.id, message: currentSelfMessage, isSending: true, messageId: currentTime }
+        const newMessage: Message = { socketId: socket.id, message: currentSelfMessage, isSending: true, messageId: currentTime }
 
         setCurrentMessageList((prev) => [...prev, newMessage])
-        socket.emit('add-message', { message: currentSelfMessage, messageId: currentTime }, (response) => {
+        socket.emit('add-message', { message: currentSelfMessage, messageId: currentTime }, (response: { status: number, messageId: MessageID }) => {
             if (response.status === 200) {
-                const messageId = response.messageId
+                const messageId: number = response.messageId
 
-                setCurrentMessageList((prevMessages) => {
-                    const updatedMessages = prevMessages.map((message) =>
+                setCurrentMessageList((prevMessages: Message[]) => {
+                    const updatedMessages = prevMessages.map((message: Message) =>
                         message.messageId === messageId ? { ...message, isSending: false } : message
                     );
 
@@ -143,17 +159,19 @@ function App() {
 
         setTimeout(() => {
             setCurrentSelfMessage('')
-            chatPanel.current.scrollTop = chatPanel.current.scrollHeight
+            if (chatPanel.current) {
+                chatPanel.current.scrollTop = chatPanel.current.scrollHeight
+            }
         }, 100)
     }, [currentSelfMessage, isSocketConnect])
 
-    const userName = useCallback((id) => {
-        const user = userList.find(x => x.id === id)
+    const userName = useCallback((id: SocketID) => {
+        const user = userList.find((x: User) => x.id === id)
 
         return (user) ? user.name : '用戶已離開'
     }, [userList])
 
-    const isSelfMessage = useCallback((id) => {
+    const isSelfMessage = useCallback((id: SocketID) => {
         return (id === socket.id)
     }, [])
 
@@ -170,7 +188,7 @@ function App() {
     }, [password, selfName])
 
     const currentUserList = useMemo(() => {
-        const list = []
+        const list: UserName[] = []
 
         currentUserIDList.forEach((id) => {
             const user = userList.find(x => x.id === id)
@@ -190,7 +208,14 @@ function App() {
         })
     }, [reName])
 
-    const loginPopupControl = useCallback((state, string, timeDown = 0) => {
+    interface LoginPopupControlProps {
+        state: boolean;
+        string: string;
+        timeDown?: number;
+    }
+
+    const loginPopupControl = useCallback(({ state, string, timeDown = 0 }: LoginPopupControlProps) => {
+        if (!loginPopup.current) return;
         if (!state) {
             loginPopup.current.style.display = 'none';
             return;
@@ -201,6 +226,7 @@ function App() {
 
         if (timeDown !== 0) {
             setTimeout(() => {
+                if (!loginPopup.current) return;
                 loginPopup.current.style.display = 'none';
             }, timeDown);
         }
@@ -215,7 +241,8 @@ function App() {
                 <div className="flex w-full md:w-auto flex-col-reverse md:flex-row flex-wrap gap-3 md:gap-10 md:items-center">
                     <div className="inline-flex md:flex-row flex-col md:items-center gap-3 md:gap-1 border border-dashed border-gray-300 p-2">
                         <span className="px-2 pt-0.5 text-lg">使用者名稱：</span>
-                        <input disabled={!isCanName} value={selfName} onInput={(e) => setSelfName(e.target.value)} type="text" className="h-10 border border-black px-1 py-0.5 text-lg" />
+                        <input disabled={!isCanName} value={selfName} onInput={(e) => setSelfName((e.target as HTMLInputElement).value)}
+                            type="text" className="h-10 border border-black px-1 py-0.5 text-lg" />
                         <button className={`md:ml-3 border border-black py-1 px-3 ${isSocketConnect ? 'block' : 'hidden'}`} onClick={reNameBtnAction}>
                             {(isStartReName) ? '確定' : '重新命名'}
                         </button>
@@ -229,7 +256,7 @@ function App() {
                 <div className="flex flex-col gap-3 md:gap-1 border w-full md:w-auto border-dashed border-gray-300 p-2 ">
                     <div className='flex md:items-center flex-col md:flex-row gap-3 md:gap-1'>
                         <span className="px-2 pt-0.5 text-lg">登入密碼：</span>
-                        <input value={password} onInput={(e) => setPassword(e.target.value)} type="password" className="h-10 border border-black px-1 py-0.5 text-lg" />
+                        <input value={password} onInput={(e) => setPassword((e.target as HTMLInputElement).value)} type="password" className="h-10 border border-black px-1 py-0.5 text-lg" />
                     </div>
                     <div className='flex items-center gap-1 text-gray-500 italic md:self-end'>
                         <span className="px-2 pt-0.5 text-lg">密碼：</span>
@@ -240,7 +267,7 @@ function App() {
                 <div className={`md:items-center gap-3 md:gap-1 w-full md:w-auto border border-dashed flex-col md:flex-row border-gray-300 p-2 ${isSocketConnect ? 'flex' : 'hidden'}`}>
                     <span className="px-2 pt-0.5 text-lg">選擇房間：</span>
                     <select value={currentRoom} onChange={(e) => { setCurrentRoom(e.target.value) }} className="h-10 w-full md:w-40 border border-black px-1 py-0.5 text-center text-black">
-                        <option disabled value={null}>
+                        <option value={null}>
                             Room-List
                         </option>
                         {roomList.map((item, index) => { return <option key={index} value={item}>{item}</option> })}
@@ -281,7 +308,7 @@ function App() {
                     <div className="mt-3 flex gap-5 px-2">
                         <input value={currentSelfMessage}
                             onKeyDown={(e) => { if (e.key === 'Enter') { sendMessage() } }}
-                            onInput={(e) => setCurrentSelfMessage(e.target.value)}
+                            onInput={(e) => setCurrentSelfMessage((e.target as HTMLInputElement).value)}
                             type="text" className="h-10 w-full border border-black px-1 py-0.5 text-lg" />
                         <button className="w-20 border border-black py-1 px-3" onClick={sendMessage}>
                             發送
