@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef, useMemo, useReducer, useCallback } from 'react'
 import { useSocket } from '@contexts/SocketContext';
 import { useData } from '@contexts/DataContext';
-import { LoginPanel } from '@components';
+import { LoginPanel, SelectRoom } from '@components';
+import { State, Room, User, Message, SocketID, MessageContent, MessageID, UserName } from '@interfaces'
 
 function App() {
     const loginPopup = useRef<HTMLDivElement>()
@@ -22,22 +23,6 @@ function App() {
 
     const [currentLoginMessage, setCurrentLoginMessage] = useState<string>('')
     const loginMessages = { login: '快馬加鞭登入中...', success: '登入成功 =)', error: '連線失敗：<br/>' }
-
-    type SocketID = string
-    type Room = string
-    type MessageID = number
-    type MessageContent = string
-    type UserName = string
-    interface Message {
-        socketId: SocketID;
-        message: MessageContent;
-        isSending?: boolean;
-        messageId?: MessageID;
-    }
-    interface User {
-        id: SocketID;
-        name: UserName;
-    }
 
     useEffect(() => {
         changeRoom()
@@ -167,10 +152,6 @@ function App() {
         return (id === socketRef.current.id)
     }, [])
 
-
-
-
-
     const currentUserList = useMemo(() => {
         const list: UserName[] = []
 
@@ -221,15 +202,11 @@ function App() {
                     startSocket={startSocket}
                 />
 
-                <div className={`md:items-center gap-3 md:gap-1 w-full md:w-auto border border-dashed flex-col md:flex-row border-gray-300 p-2 ${isSocketConnect ? 'flex' : 'hidden'}`}>
-                    <span className="px-2 pt-0.5 text-lg">選擇房間：</span>
-                    <select value={currentRoom} onChange={(e) => { setCurrentRoom(e.target.value) }} className="h-10 w-full md:w-40 border border-black px-1 py-0.5 text-center text-black">
-                        <option value={null}>
-                            Room-List
-                        </option>
-                        {roomList.map((item, index) => { return <option key={index} value={item}>{item}</option> })}
-                    </select>
-                </div >
+                <SelectRoom
+                    isSocketConnect={isSocketConnect}
+                    currentRoomState={{ value: currentRoom, set: setCurrentRoom }}
+                    roomList={roomList}
+                />
             </div>
 
             <div className="flex flex-wrap gap-3 md:gap-10">

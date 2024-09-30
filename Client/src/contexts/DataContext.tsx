@@ -1,9 +1,6 @@
 import { createContext, useContext, useState } from "react";
+import { State } from '@interfaces'
 
-interface State {
-    value: any;
-    set: React.Dispatch<React.SetStateAction<any>>;
-}
 
 const DataContext = createContext<{ passWordState: State | null, selfNameState: State | null }>({ passWordState: null, selfNameState: null });
 
